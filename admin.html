@@ -1,0 +1,409 @@
+# Shwapnosiri-Ledger-admin
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>স্বপ্নসিঁড়ি - অ্যাডমিন প্যানেল</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <style>
+        :root { 
+            --primary: #2563eb; 
+            --primary-light: #eff6ff;
+            --bg-light: #f8fafc; 
+            --card-white: #ffffff; 
+            --text-main: #1e293b;
+        }
+        body { background-color: var(--bg-light); font-family: 'Segoe UI', Tahoma, sans-serif; color: var(--text-main); height: 100vh; overflow: hidden; }
+        #sidebar { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); background: var(--card-white); box-shadow: 4px 0 10px rgba(0,0,0,0.02); }
+        .nav-active { background: var(--primary-light); border-right: 4px solid var(--primary); color: var(--primary) !important; font-weight: 600; }
+        .card { background: var(--card-white); border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+        @media (max-width: 768px) { #sidebar { position: fixed; z-index: 100; transform: translateX(-100%); } #sidebar.open { transform: translateX(0); } }
+        .modal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px); }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    </style>
+</head>
+<body class="flex">
+
+    <div id="overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-slate-900/40 z-40 hidden md:hidden"></div>
+
+    <aside id="sidebar" class="w-72 border-r border-slate-200 h-full flex flex-col">
+        <div class="p-8">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white text-xl shadow-lg shadow-blue-200">
+                    <i class="fas fa-stairs"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-slate-800">স্বপ্নসিঁড়ি</h1>
+                    <p class="text-[10px] text-blue-600 font-bold uppercase tracking-widest">অ্যাডমিন প্যানেল</p>
+                </div>
+            </div>
+        </div>
+
+        <nav class="flex-1 px-4 space-y-1 overflow-y-auto">
+            <button onclick="showSection('dashboard')" id="nav-dashboard" class="w-full flex items-center px-6 py-3.5 rounded-xl text-slate-500 nav-active transition">
+                <i class="fas fa-chart-pie mr-4"></i> ড্যাশবোর্ড
+            </button>
+            <button onclick="showSection('members')" id="nav-members" class="w-full flex items-center px-6 py-3.5 rounded-xl text-slate-500 hover:bg-slate-50 transition">
+                <i class="fas fa-user-group mr-4"></i> সদস্য তালিকা
+            </button>
+            <button onclick="showSection('finance')" id="nav-finance" class="w-full flex items-center px-6 py-3.5 rounded-xl text-slate-500 hover:bg-slate-50 transition">
+                <i class="fas fa-wallet mr-4"></i> লেনদেন হিসাব
+            </button>
+            <button onclick="showSection('notices')" id="nav-notices" class="w-full flex items-center px-6 py-3.5 rounded-xl text-slate-500 hover:bg-slate-50 transition">
+                <i class="fas fa-bell mr-4"></i> নোটিশ বোর্ড
+            </button>
+        </nav>
+
+        <div class="p-6 space-y-2">
+            <button onclick="downloadExcel()" class="w-full py-3 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-xl text-xs font-bold hover:bg-emerald-100 transition flex items-center justify-center">
+                <i class="fas fa-file-export mr-2"></i> সব লেনদেন রিপোর্ট
+            </button>
+            <button onclick="downloadExpenseExcel()" class="w-full py-3 bg-rose-50 text-rose-700 border border-rose-100 rounded-xl text-xs font-bold hover:bg-rose-100 transition flex items-center justify-center">
+                <i class="fas fa-file-invoice-dollar mr-2"></i> শুধু খরচ রিপোর্ট
+            </button>
+            <button onclick="downloadMemberList()" class="w-full py-3 bg-blue-50 text-blue-700 border border-blue-100 rounded-xl text-xs font-bold hover:bg-blue-100 transition flex items-center justify-center">
+                <i class="fas fa-users-line mr-2"></i> সদস্য তালিকা (Excel)
+            </button>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-full overflow-hidden">
+        <header class="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8">
+            <div class="flex items-center">
+                <button onclick="toggleSidebar()" class="md:hidden mr-4 text-xl text-slate-600"><i class="fas fa-bars"></i></button>
+                <h2 id="section-title" class="text-lg font-semibold text-slate-700">ড্যাশবোর্ড ওভারভিউ</h2>
+            </div>
+            <p class="text-sm font-bold text-slate-700" id="current-date-display"></p>
+        </header>
+
+        <div id="content-area" class="p-6 md:p-10 overflow-y-auto h-full pb-32">
+            
+            <div id="dashboard-sec" class="space-y-8">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="card p-6 border-t-4 border-t-blue-500">
+                        <p class="text-xs font-bold text-slate-400 uppercase">মোট সদস্য</p>
+                        <h3 id="stat-members" class="text-3xl font-bold">০</h3>
+                    </div>
+                    <div class="card p-6 border-t-4 border-t-emerald-500">
+                        <p class="text-xs font-bold text-slate-400 uppercase">মোট জমা</p>
+                        <h3 id="stat-earn" class="text-3xl font-bold text-emerald-600">৳ ০</h3>
+                    </div>
+                    <div class="card p-6 border-t-4 border-t-rose-500">
+                        <p class="text-xs font-bold text-slate-400 uppercase">মোট খরচ</p>
+                        <h3 id="stat-expense" class="text-3xl font-bold text-rose-600">৳ ০</h3>
+                    </div>
+                </div>
+                <div class="card overflow-hidden">
+                    <div class="px-6 py-4 border-b bg-slate-50/50 font-bold text-slate-700">সাম্প্রতিক লেনদেনসমূহ (ডেসক্রিপশনসহ)</div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-slate-50 text-slate-500">
+                                <tr>
+                                    <th class="px-6 py-3">ID</th>
+                                    <th class="px-6 py-3">নাম/উৎস</th>
+                                    <th class="px-6 py-3">ডেসক্রিপশন</th>
+                                    <th class="px-6 py-3 text-right">পরিমাণ</th>
+                                    <th class="px-6 py-3"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="recent-transactions-table" class="divide-y divide-slate-50"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="members-sec" class="hidden space-y-6">
+                <div class="card p-8">
+                    <h3 class="font-bold mb-6 text-slate-800">নতুন সদস্য নিবন্ধন</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <input id="m-name" type="text" placeholder="সদস্যের নাম" class="p-4 rounded-xl border outline-none">
+                        <input id="m-phone" type="text" placeholder="ফোন নম্বর" class="p-4 rounded-xl border outline-none">
+                        <input id="m-address" type="text" placeholder="ঠিকানা" class="p-4 rounded-xl border outline-none">
+                        <input id="m-photo" type="text" placeholder="ছবির ইউআরএল" class="p-4 rounded-xl border outline-none">
+                        <button onclick="addMember()" class="lg:col-span-4 bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition">নিবন্ধন করুন</button>
+                    </div>
+                </div>
+                <div class="card p-6">
+                    <div class="relative mb-6">
+                        <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input id="member-search" onkeyup="searchMember()" type="text" placeholder="সদস্য খুঁজুন..." class="w-full p-4 pl-12 rounded-xl border outline-none">
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <tbody id="member-list-table" class="divide-y divide-slate-50"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="finance-sec" class="hidden max-w-4xl mx-auto space-y-6">
+                <div class="card p-8">
+                    <div class="flex p-1 bg-slate-100 rounded-2xl mb-8">
+                        <button onclick="toggleFinMode('EARN')" id="tab-earn" class="flex-1 py-3 rounded-xl font-bold bg-white text-blue-600 shadow-sm transition">আয় / জমা</button>
+                        <button onclick="toggleFinMode('EXPENSE')" id="tab-expense" class="flex-1 py-3 rounded-xl font-bold text-slate-500 transition">ব্যয় / খরচ</button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <select id="fin-member" class="p-4 rounded-xl border outline-none bg-white"></select>
+                        <select id="fin-cat" class="p-4 rounded-xl border outline-none bg-white"></select>
+                        <input id="fin-amount" type="number" placeholder="৳ টাকার পরিমাণ" class="p-4 rounded-xl border outline-none">
+                        <input id="fin-note" type="text" placeholder="ডেসক্রিপশন/মন্তব্য (যেমন: মাসিক চাঁদা বা সিরাহ খরচ)" class="p-4 rounded-xl border outline-none">
+                    </div>
+                    <button onclick="saveTransaction()" class="w-full mt-8 bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-slate-800 transition">লেনদেন নিশ্চিত করুন</button>
+                </div>
+            </div>
+
+            <div id="notices-sec" class="hidden max-w-2xl mx-auto card p-8">
+                <h3 class="font-bold mb-4">নতুন নোটিশ</h3>
+                <textarea id="notice-msg" class="w-full p-4 border rounded-xl h-32 mb-4 outline-none" placeholder="বার্তা লিখুন..."></textarea>
+                <button onclick="addNotice()" class="w-full bg-blue-600 text-white py-4 rounded-xl font-bold">প্রকাশ করুন</button>
+            </div>
+
+        </div>
+    </main>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, set, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDmzzpGt6zE__9nBIP51Yt0s6jY58B10dY",
+            authDomain: "shwapnosiri-2.firebaseapp.com",
+            databaseURL: "https://shwapnosiri-2-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "shwapnosiri-2",
+            storageBucket: "shwapnosiri-2.firebasestorage.app",
+            messagingSenderId: "261712251859",
+            appId: "1:261712251859:web:c7fc7f482c56f2d55b3d26"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // Global State
+        window.allMembers = [];
+        window.allTransactions = [];
+        let currentMode = 'EARN';
+
+        const categories = {
+            EARN: [
+                "মাসিক সাবস্ক্রিপশন", "সদস্য ফি", "সাপ্তাহিক জমা", "প্রজেক্ট ফান্ড", "সিরাহ (আয়)", "বিশেষ অনুদান", 
+                "যাকাত ফান্ড", "সদকা ও দান", "এককালীন অনুদান", "ইভেন্ট স্পনসরশিপ", "বই/সাময়িকী বিক্রি", 
+                "ব্যাংক ইন্টারেস্ট", "জরুরি ত্রাণ তহবিল", "অন্যান্য উৎস"
+            ],
+            EXPENSE: [
+                "সিরাহ (খরচ)", "খাবার খরচ", "অফিস ভাড়া", "যাতায়াত বিল", "আপ্যায়ন", "বিকাশ চার্জ", 
+                "দাওয়াহ কার্যক্রম", "গরিব/অসহায় সহায়তা", "চিকিৎসা সহায়তা", "শিক্ষা ও লজিস্টিক", 
+                "প্রচারণা ও বিজ্ঞাপন", "উপহার ও সম্মাননা", "প্রোগ্রাম আয়োজন", "ইউটিলিটি বিল (বিদ্যুৎ/পানি)", 
+                "স্টেশনারি ও প্রিন্টিং", "জরুরি ত্রাণ বিতরণ", "অন্যান্য খরচ"
+            ]
+        };
+
+        // Initialize App
+        document.getElementById('current-date-display').innerText = new Date().toLocaleDateString('bn-BD', { year:'numeric', month:'long', day:'numeric' });
+
+        // Firebase Listener
+        onValue(ref(db, "/"), (snap) => {
+            const data = snap.val() || {};
+            const rawMembers = data.members || {};
+            window.allMembers = Object.keys(rawMembers).map(key => ({ ...rawMembers[key], fbId: key }));
+            const rawTx = data.transactions || {};
+            window.allTransactions = Object.keys(rawTx).map(key => ({ ...rawTx[key], fbKey: key }));
+            refreshUI();
+        });
+
+        function refreshUI() {
+            updateDashboard();
+            renderMemberTable();
+            renderTransactionTable();
+            populateSelectors();
+        }
+
+        window.addMember = () => {
+            const name = document.getElementById('m-name').value;
+            const phone = document.getElementById('m-phone').value;
+            const address = document.getElementById('m-address').value;
+            const photo = document.getElementById('m-photo').value;
+            if(!name || !phone) return alert("দয়া করে নাম ও ফোন নম্বর দিন");
+            const memberId = 2601000 + window.allMembers.length + 1;
+            set(ref(db, 'members/' + memberId), { memberId, name, phone, address: address || "N/A", photo: photo || "" })
+            .then(() => {
+                alert("সদস্য সফলভাবে যুক্ত হয়েছে");
+                ['m-name', 'm-phone', 'm-address', 'm-photo'].forEach(id => document.getElementById(id).value = '');
+            });
+        };
+
+        window.saveTransaction = () => {
+            const memberId = document.getElementById('fin-member').value;
+            const category = document.getElementById('fin-cat').value;
+            const amount = document.getElementById('fin-amount').value;
+            const note = document.getElementById('fin-note').value;
+            if(!amount) return alert("টাকার পরিমাণ দিন");
+
+            const newTx = {
+                // খরচ হলে ORGANIZATION সেভ হবে যাতে পার্সোনাল আইডিতে হিট না করে
+                memberId: currentMode === 'EXPENSE' ? 'ORGANIZATION' : memberId,
+                category,
+                amount: Number(amount),
+                type: currentMode,
+                note: note || "",
+                date: new Date().toLocaleDateString('bn-BD')
+            };
+
+            push(ref(db, 'transactions'), newTx).then(() => {
+                alert("লেনদেন সফল!");
+                document.getElementById('fin-amount').value = '';
+                document.getElementById('fin-note').value = '';
+            });
+        };
+
+        window.deleteMember = (id) => {
+            if(confirm("সদস্যকে মুছে ফেলতে চান?")) remove(ref(db, 'members/' + id));
+        };
+
+        window.deleteTransaction = (key) => {
+            if(confirm("লেনদেনটি মুছে ফেলতে চান?")) remove(ref(db, 'transactions/' + key));
+        };
+
+        window.downloadMemberList = () => {
+            if(window.allMembers.length === 0) return alert("তালিকায় কোনো সদস্য নেই");
+            const data = window.allMembers.map(m => ({ "ID": m.memberId, "Name": m.name, "Phone": m.phone, "Address": m.address }));
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Members");
+            XLSX.writeFile(wb, "Siri_Member_List.xlsx");
+        };
+
+        window.downloadExcel = () => {
+            if(window.allTransactions.length === 0) return alert("কোনো লেনদেন নেই");
+            const ws = XLSX.utils.json_to_sheet(window.allTransactions);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "All_Transactions");
+            XLSX.writeFile(wb, "Siri_Full_Finance_Report.xlsx");
+        };
+
+        window.downloadExpenseExcel = () => {
+            const expenses = window.allTransactions.filter(t => t.type === 'EXPENSE');
+            if(expenses.length === 0) return alert("কোনো খরচের রেকর্ড নেই");
+            const data = expenses.map(t => ({ "তারিখ": t.date, "ক্যাটাগরি": t.category, "পরিমাণ": t.amount, "ডেসক্রিপশন": t.note }));
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Expenses");
+            XLSX.writeFile(wb, "Siri_Expense_Report.xlsx");
+        };
+
+        window.toggleFinMode = (mode) => {
+            currentMode = mode;
+            const btnEarn = document.getElementById('tab-earn');
+            const btnExp = document.getElementById('tab-expense');
+            const memSelect = document.getElementById('fin-member');
+            
+            if(mode === 'EARN') {
+                btnEarn.className = "flex-1 py-3 rounded-xl font-bold bg-white text-blue-600 shadow-sm";
+                btnExp.className = "flex-1 py-3 rounded-xl font-bold text-slate-500";
+                memSelect.disabled = false;
+                memSelect.classList.remove('bg-gray-100');
+            } else {
+                btnExp.className = "flex-1 py-3 rounded-xl font-bold bg-white text-rose-600 shadow-sm";
+                btnEarn.className = "flex-1 py-3 rounded-xl font-bold text-slate-500";
+                memSelect.disabled = true; 
+                memSelect.classList.add('bg-gray-100');
+            }
+            populateCategories();
+        };
+
+        function populateCategories() {
+            const catSelect = document.getElementById('fin-cat');
+            catSelect.innerHTML = categories[currentMode].map(c => `<option value="${c}">${c}</option>`).join('');
+        }
+
+        function populateSelectors() {
+            const memSelect = document.getElementById('fin-member');
+            memSelect.innerHTML = window.allMembers.map(m => `<option value="${m.memberId}">${m.name} (#${m.memberId})</option>`).join('');
+            if(!document.getElementById('fin-cat').innerHTML) populateCategories();
+        }
+
+        function updateDashboard() {
+            const earn = window.allTransactions.filter(t => t.type === 'EARN').reduce((s, t) => s + Number(t.amount), 0);
+            const exp = window.allTransactions.filter(t => t.type === 'EXPENSE').reduce((s, t) => s + Number(t.amount), 0);
+            document.getElementById('stat-members').innerText = window.allMembers.length;
+            document.getElementById('stat-earn').innerText = "৳ " + earn.toLocaleString('bn-BD');
+            document.getElementById('stat-expense').innerText = "৳ " + exp.toLocaleString('bn-BD');
+        }
+
+        function renderMemberTable() {
+            const html = window.allMembers.map(m => `
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="px-4 py-4 font-bold text-blue-600">#${m.memberId}</td>
+                    <td class="px-4 py-4">
+                        <p class="font-bold text-slate-700">${m.name}</p>
+                        <p class="text-xs text-slate-400">${m.phone}</p>
+                    </td>
+                    <td class="px-4 py-4 text-right">
+                        <button onclick="deleteMember('${m.fbId}')" class="w-8 h-8 text-rose-500 bg-rose-50 rounded-lg hover:bg-rose-500 hover:text-white transition"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+            document.getElementById('member-list-table').innerHTML = html || '<tr><td class="p-4 text-center text-slate-400">কোনো সদস্য নেই</td></tr>';
+        }
+
+        function renderTransactionTable() {
+            const recent = window.allTransactions.slice().reverse().slice(0, 15);
+            const html = recent.map(t => {
+                const member = window.allMembers.find(m => String(m.memberId) === String(t.memberId));
+                const displayName = t.memberId === 'ORGANIZATION' ? '<span class="text-rose-600">প্রতিষ্ঠান (খরচ)</span>' : (member ? member.name : 'অজানা');
+                return `
+                <tr class="hover:bg-slate-50">
+                    <td class="px-6 py-4 text-slate-400 text-xs">#${t.memberId}</td>
+                    <td class="px-6 py-4">
+                        <p class="font-semibold text-slate-700">${displayName}</p>
+                        <p class="text-[10px] text-slate-400 uppercase font-bold">${t.category}</p>
+                    </td>
+                    <td class="px-6 py-4 text-slate-500 text-xs italic">${t.note || '-'}</td>
+                    <td class="px-6 py-4 text-right font-bold ${t.type === 'EARN' ? 'text-emerald-600' : 'text-rose-600'}">৳${t.amount}</td>
+                    <td class="px-6 py-4 text-right">
+                        <button onclick="deleteTransaction('${t.fbKey}')" class="text-rose-300 hover:text-rose-600"><i class="fas fa-trash-can"></i></button>
+                    </td>
+                </tr>
+            `}).join('');
+            document.getElementById('recent-transactions-table').innerHTML = html || '<tr><td class="p-4 text-center text-slate-400">কোনো লেনদেন নেই</td></tr>';
+        }
+
+        window.showSection = (id) => {
+            ['dashboard', 'members', 'finance', 'notices'].forEach(s => {
+                document.getElementById(s + '-sec').classList.add('hidden');
+                document.getElementById('nav-' + s).classList.remove('nav-active');
+            });
+            document.getElementById(id + '-sec').classList.remove('hidden');
+            document.getElementById('nav-' + id).classList.add('nav-active');
+            const titles = { dashboard: 'ড্যাশবোর্ড ওভারভিউ', members: 'সদস্য ব্যবস্থাপনা', finance: 'আয়-ব্যয়ের হিসাব', notices: 'বার্তা ও নোটিশ' };
+            document.getElementById('section-title').innerText = titles[id];
+            if(window.innerWidth < 768) toggleSidebar();
+        };
+
+        window.toggleSidebar = () => {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('overlay').classList.toggle('hidden');
+        };
+
+        window.searchMember = () => {
+            const val = document.getElementById('member-search').value.toLowerCase();
+            document.querySelectorAll('#member-list-table tr').forEach(row => {
+                row.style.display = row.innerText.toLowerCase().includes(val) ? "" : "none";
+            });
+        };
+
+        window.addNotice = () => {
+            const msg = document.getElementById('notice-msg').value;
+            if(!msg) return alert("নোটিশ লিখুন");
+            push(ref(db, 'notices'), { message: msg, date: new Date().toLocaleDateString('bn-BD') }).then(() => {
+                alert("নোটিশ প্রকাশিত!");
+                document.getElementById('notice-msg').value = '';
+            });
+        };
+    </script>
+</body>
+</html>
