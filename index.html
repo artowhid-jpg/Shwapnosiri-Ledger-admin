@@ -83,7 +83,7 @@
         <div id="content-area" class="p-6 md:p-10 overflow-y-auto h-full pb-32">
             
             <div id="dashboard-sec" class="space-y-8">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div class="card p-6 border-t-4 border-t-blue-500">
                         <p class="text-xs font-bold text-slate-400 uppercase">মোট সদস্য</p>
                         <h3 id="stat-members" class="text-3xl font-bold">০</h3>
@@ -95,6 +95,10 @@
                     <div class="card p-6 border-t-4 border-t-rose-500">
                         <p class="text-xs font-bold text-slate-400 uppercase">মোট খরচ</p>
                         <h3 id="stat-expense" class="text-3xl font-bold text-rose-600">৳ ০</h3>
+                    </div>
+                    <div class="card p-6 border-t-4 border-t-amber-500 shadow-amber-50">
+                        <p class="text-xs font-bold text-slate-400 uppercase">বর্তমান ব্যালেন্স</p>
+                        <h3 id="stat-balance" class="text-3xl font-bold text-amber-600">৳ ০</h3>
                     </div>
                 </div>
                 <div class="card overflow-hidden">
@@ -243,7 +247,6 @@
             if(!amount) return alert("টাকার পরিমাণ দিন");
 
             const newTx = {
-                // খরচ হলে ORGANIZATION সেভ হবে যাতে পার্সোনাল আইডিতে হিট না করে
                 memberId: currentMode === 'EXPENSE' ? 'ORGANIZATION' : memberId,
                 category,
                 amount: Number(amount),
@@ -328,9 +331,12 @@
         function updateDashboard() {
             const earn = window.allTransactions.filter(t => t.type === 'EARN').reduce((s, t) => s + Number(t.amount), 0);
             const exp = window.allTransactions.filter(t => t.type === 'EXPENSE').reduce((s, t) => s + Number(t.amount), 0);
+            const balance = earn - exp; // ব্যালেন্স ক্যালকুলেশন
+
             document.getElementById('stat-members').innerText = window.allMembers.length;
             document.getElementById('stat-earn').innerText = "৳ " + earn.toLocaleString('bn-BD');
             document.getElementById('stat-expense').innerText = "৳ " + exp.toLocaleString('bn-BD');
+            document.getElementById('stat-balance').innerText = "৳ " + balance.toLocaleString('bn-BD'); // ব্যালেন্স আপডেট
         }
 
         function renderMemberTable() {
